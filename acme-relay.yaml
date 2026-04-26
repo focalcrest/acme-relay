@@ -15,3 +15,16 @@ dns:
 storage:
   type: "filesystem"
   path: "/var/lib/acme-relay/certs"
+
+# Staging example — uncomment to test against LE staging + AliDNS
+# acme:
+#   provider: "staging"
+#   email: "admin@example.com"
+# dns:
+#   provider: "alidns"
+#   accessKey: "${ALIDNS_ACCESS_KEY}"
+#   secretKey: "${ALIDNS_SECRET_KEY}"
+#   regionId: "cn-hangzhou"
+# storage:
+#   type: "filesystem"
+#   path: "/var/lib/acme-relay/certs"

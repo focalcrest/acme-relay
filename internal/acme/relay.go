@@ -59,13 +59,26 @@ func NewRelay(email, directoryURL string, dnsProvider *alidns.DNSProvider, store
 		return nil, fmt.Errorf("failed to generate account key: %w", err)
 	}
 
-	config := lego.NewConfig(&account{email: email, privateKey: privateKey})
+	acc := &account{email: email, privateKey: privateKey}
+
+	config := lego.NewConfig(acc)
 	config.Certificate.KeyType = certcrypto.EC256
+	config.CADirURL = directoryURL
 
 	client, err := lego.NewClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lego client: %w", err)
 	}
+
+	if err := client.Challenge.SetDNS01Provider(dnsProvider); err != nil {
+		return nil, fmt.Errorf("failed to set DNS-01 provider: %w", err)
+	}
+
+	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to register account with CA: %w", err)
+	}
+	acc.reg = reg
 
 	return &Relay{
 		client:       client,
@@ -271,6 +284,7 @@ func computeKeyAuthorization(token string, thumbprint string) string {
 type account struct {
 	email      string
 	privateKey *ecdsa.PrivateKey
+	reg        *registration.Resource
 }
 
 func (a *account) GetEmail() string {
@@ -278,7 +292,7 @@ func (a *account) GetEmail() string {
 }
 
 func (a *account) GetRegistration() *registration.Resource {
-	return nil
+	return a.reg
 }
 
 func (a *account) GetPrivateKey() crypto.PrivateKey {
