@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-jose/go-jose/v4"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -44,12 +47,13 @@ type CertificateStore interface {
 
 // Relay handles ACME certificate acquisition and renewal.
 type Relay struct {
-	client       *lego.Client
-	dnsProvider  *alidns.DNSProvider
-	storage      CertificateStore
-	email        string
-	directoryURL string
-	httpClient   *http.Client
+	client        *lego.Client
+	dnsProvider   *alidns.DNSProvider
+	storage       CertificateStore
+	email         string
+	directoryURL  string
+	httpClient    *http.Client
+	jwkThumbprint string
 }
 
 // NewRelay creates a new ACME relay instance.
@@ -80,13 +84,22 @@ func NewRelay(email, directoryURL string, dnsProvider *alidns.DNSProvider, store
 	}
 	acc.reg = reg
 
+	// Compute JWK thumbprint for HTTP-01 keyAuthorization
+	jwk := jose.JSONWebKey{Key: privateKey.Public()}
+	thumbprintBytes, err := jwk.Thumbprint(crypto.SHA256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute JWK thumbprint: %w", err)
+	}
+	jwkThumbprint := base64.RawURLEncoding.EncodeToString(thumbprintBytes)
+
 	return &Relay{
-		client:       client,
-		dnsProvider:  dnsProvider,
-		storage:      store,
-		email:        email,
-		directoryURL: directoryURL,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		client:        client,
+		dnsProvider:   dnsProvider,
+		storage:       store,
+		email:         email,
+		directoryURL:  directoryURL,
+		httpClient:    &http.Client{Timeout: 10 * time.Second},
+		jwkThumbprint: jwkThumbprint,
 	}, nil
 }
 
@@ -115,10 +128,8 @@ func (r *Relay) InitiateCertificate(ctx context.Context, domains []string, csrBa
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// Compute keyAuthorization for HTTP-01
-	// Note: In the relay context, the thumbprint is from our upstream LE account key.
-	// For the ACME server context, this will be computed per-account via ComputeKeyAuthorization.
-	keyAuth := token + "." + "relay-placeholder"
+	// Compute keyAuthorization for HTTP-01 using the relay's JWK thumbprint
+	keyAuth := computeKeyAuthorization(token, r.jwkThumbprint)
 
 	// Build challenge URL
 	challengeURL := fmt.Sprintf("http://%s/.well-known/acme-challenge/%s", primaryDomain, token)
@@ -248,12 +259,29 @@ func (r *Relay) GetCertificate(domain string) (*types.CertificateResponse, error
 
 // RenewCertificate triggers renewal for an existing certificate.
 func (r *Relay) RenewCertificate(ctx context.Context, domain string) (*types.CertificateResponse, error) {
-	existingCert, err := r.storage.Get(domain)
+	_, err := r.storage.Get(domain)
 	if err != nil {
 		return nil, fmt.Errorf("certificate not found for domain: %s", domain)
 	}
 
-	return r.RequestCertificate(ctx, []string{domain}, base64.StdEncoding.EncodeToString([]byte(existingCert.Certificate)))
+	// Generate a fresh key and CSR for renewal
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate renewal key: %w", err)
+	}
+
+	template := &x509.CertificateRequest{
+		Subject:  pkix.Name{CommonName: domain},
+		DNSNames: []string{domain},
+	}
+
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, template, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create renewal CSR: %w", err)
+	}
+
+	csrBase64 := base64.StdEncoding.EncodeToString(csrDER)
+	return r.CompleteCertificateRequest(ctx, []string{domain}, csrBase64)
 }
 
 // CheckExpiry checks if a certificate needs renewal.
