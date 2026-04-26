@@ -1,0 +1,22 @@
+# Binaries
+/acme-relay
+*.exe
+
+# Test
+coverage.out
+*.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OMC local state
+.omc/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code / OMC tooling
+.claude/

@@ -1,0 +1,176 @@
+// Package main is the entry point for the acme-relay server.
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
+
+	"acme-relay/internal/acme"
+	"acme-relay/internal/config"
+	"acme-relay/internal/dns"
+	"acme-relay/internal/handler"
+	"acme-relay/internal/middleware"
+	"acme-relay/internal/storage"
+)
+
+func main() {
+	// Load configuration
+	cfg, err := config.Load("acme-relay.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Initialize storage
+	store, err := storage.NewFilesystemStorage(cfg.Storage.Path)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+
+	// Initialize DNS provider
+	dnsProvider, err := dns.NewAliDNSProvider(
+		cfg.DNS.AccessKey,
+		cfg.DNS.SecretKey,
+		cfg.DNS.RegionID,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize DNS provider: %v", err)
+	}
+
+	// Initialize ACME relay
+	relay, err := acme.NewRelay(
+		cfg.ACME.Email,
+		cfg.GetDirectoryURL(),
+		dnsProvider,
+		store,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize ACME relay: %v", err)
+	}
+
+	// Initialize DNS TXT manager for direct DNS API
+	txtManager, err := dns.NewTXTManager(
+		cfg.DNS.AccessKey,
+		cfg.DNS.SecretKey,
+		cfg.DNS.RegionID,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize TXT manager: %v", err)
+	}
+
+	// Initialize nonce service and ID generator
+	nonceSvc := acme.NewNonceService()
+	maxOrder, maxAuthz, maxAccount := store.MaxIDs()
+	maxID := maxOrder
+	if maxAuthz > maxID {
+		maxID = maxAuthz
+	}
+	if maxAccount > maxID {
+		maxID = maxAccount
+	}
+	idGen := acme.NewIDGenerator(maxID)
+
+	// Start nonce cleanup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	nonceSvc.StartCleanup(ctx)
+
+	// Determine base URL
+	baseURL := cfg.Server.BaseURL
+	if baseURL == "" {
+		scheme := "http"
+		baseURL = scheme + "://" + cfg.Server.Address()
+	}
+
+	// Initialize handlers
+	certHandler := handler.NewCertificateHandler(relay)
+	acmeHandler := handler.NewACMEHandler(store, relay, nonceSvc, idGen, baseURL)
+	dnsAPIHandler := handler.NewDNSAPIHandler(txtManager)
+
+	// Set up router
+	r := chi.NewRouter()
+
+	// Middleware
+	r.Use(chimw.Logger)
+	r.Use(chimw.Recoverer)
+	r.Use(chimw.Timeout(120 * time.Second))
+
+	// Legacy REST API routes
+	r.Route("/", func(r chi.Router) {
+		r.Get("/health", certHandler.HealthCheck)
+		r.Post("/certificate", certHandler.RequestCertificate)
+		r.Get("/certificate/{domain}", certHandler.GetCertificate)
+		r.Post("/renew/{domain}", certHandler.RenewCertificate)
+	})
+
+	// RFC 8555 ACME routes
+	r.Route("/acme", func(r chi.Router) {
+		r.Get("/directory", acmeHandler.Directory)
+		r.Head("/new-nonce", acmeHandler.NewNonce)
+		r.Get("/new-nonce", acmeHandler.NewNonce)
+
+		// new-account uses JWK-based auth (no existing account)
+		r.With(acme.JWSWithJWKMiddleware(nonceSvc)).Post("/new-account", acmeHandler.NewAccount)
+
+		// All other endpoints use KID-based auth
+		r.Route("/", func(r chi.Router) {
+			r.Use(acme.JWSMiddleware(nonceSvc, store.GetAccountByKIDURL))
+
+			r.Post("/new-order", acmeHandler.NewOrder)
+			r.Post("/order/{id}", acmeHandler.GetOrder)
+			r.Post("/order/{id}/finalize", acmeHandler.FinalizeOrder)
+			r.Post("/authz/{id}", acmeHandler.GetAuthorization)
+			r.Post("/challenge/{authzID}/{chalID}", acmeHandler.HandleChallenge)
+			r.Post("/certificate/{orderID}", acmeHandler.GetCertificate)
+		})
+	})
+
+	// DNS API routes (token auth)
+	r.Route("/api/v1", func(r chi.Router) {
+		tokenSet := cfg.TokenSet()
+		r.Use(middleware.APIKeyAuth(tokenSet))
+		r.Post("/dns/txt/add", dnsAPIHandler.AddTXT)
+		r.Post("/dns/txt/remove", dnsAPIHandler.RemoveTXT)
+	})
+
+	// Create server
+	srv := &http.Server{
+		Addr:         cfg.Server.Address(),
+		Handler:      r,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 120 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("Starting acme-relay server on %s", cfg.Server.Address())
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	// Graceful shutdown with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited")
+}

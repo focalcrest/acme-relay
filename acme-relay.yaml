@@ -1,0 +1,17 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+acme:
+  provider: "letsencrypt"
+  email: "admin@example.com"
+
+dns:
+  provider: "alidns"
+  accessKey: "${ALIDNS_ACCESS_KEY}"
+  secretKey: "${ALIDNS_SECRET_KEY}"
+  regionId: "cn-hangzhou"
+
+storage:
+  type: "filesystem"
+  path: "/var/lib/acme-relay/certs"
