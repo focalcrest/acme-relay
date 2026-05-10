@@ -7,25 +7,33 @@ acme:
   email: "admin@example.com"
 
 dns:
-  provider: "alidns"
+  provider: "cloudflare"
   credentials:
-    ALICLOUD_ACCESS_KEY: "${ALIDNS_ACCESS_KEY}"
-    ALICLOUD_SECRET_KEY: "${ALIDNS_SECRET_KEY}"
+    CLOUDFLARE_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
 
 storage:
   type: "filesystem"
   path: "/var/lib/acme-relay/certs"
 
-# Cloudflare example
+# Other provider examples
+#
+# AliDNS (Aliyun)
 # dns:
-#   provider: "cloudflare"
+#   provider: "alidns"
 #   credentials:
-#     CLOUDFLARE_DNS_API_TOKEN: "..."
-
-# Route 53 example
+#     ALICLOUD_ACCESS_KEY: "${ALICLOUD_ACCESS_KEY}"
+#     ALICLOUD_SECRET_KEY: "${ALICLOUD_SECRET_KEY}"
+#
+# Route 53
 # dns:
 #   provider: "route53"
 #   credentials:
 #     AWS_ACCESS_KEY_ID: "..."
 #     AWS_SECRET_ACCESS_KEY: "..."
 #     AWS_REGION: "us-east-1"
+#
+# DigitalOcean
+# dns:
+#   provider: "digitalocean"
+#   credentials:
+#     DO_AUTH_TOKEN: "..."
