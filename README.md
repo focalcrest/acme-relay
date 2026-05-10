@@ -52,9 +52,9 @@ Pick whichever fits — both produce the same binary.
 
 ```bash
 # 1. Pre-built binary (no Go toolchain required)
-#    Available for linux-amd64, linux-arm64, darwin-amd64, darwin-arm64
+#    Available for linux-amd64 and linux-arm64.
 #    See https://github.com/focalcrest/acme-relay/releases for the latest tag.
-curl -L https://github.com/focalcrest/acme-relay/releases/latest/download/acme-relay_Linux_x86_64.tar.gz \
+curl -L https://github.com/focalcrest/acme-relay/releases/latest/download/acme-relay_linux_amd64.tar.gz \
   | tar xz
 sudo install -m 0755 acme-relay /usr/local/bin/
 

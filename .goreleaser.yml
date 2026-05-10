@@ -12,7 +12,6 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
       - arm64
@@ -52,6 +51,6 @@ release:
     See [Install](https://github.com/focalcrest/acme-relay#install) for details.
 
     ```bash
-    # Pre-built binary (Linux x86_64)
-    curl -L https://github.com/focalcrest/acme-relay/releases/download/{{ .Tag }}/acme-relay_Linux_x86_64.tar.gz | tar xz
+    # Pre-built binary (linux/amd64)
+    curl -L https://github.com/focalcrest/acme-relay/releases/download/{{ .Tag }}/acme-relay_linux_amd64.tar.gz | tar xz
     ```
