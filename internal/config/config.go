@@ -8,19 +8,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-// APITokenConfig holds a single API token for DNS API authentication.
-type APITokenConfig struct {
-	Token       string `mapstructure:"token"`
-	Description string `mapstructure:"description"`
-}
-
 // Config holds all application configuration.
 type Config struct {
-	Server    ServerConfig    `mapstructure:"server"`
-	ACME      ACMEConfig      `mapstructure:"acme"`
-	DNS       DNSConfig       `mapstructure:"dns"`
-	Storage   StorageConfig   `mapstructure:"storage"`
-	APITokens []APITokenConfig `mapstructure:"apiTokens"`
+	Server  ServerConfig  `mapstructure:"server"`
+	ACME    ACMEConfig    `mapstructure:"acme"`
+	DNS     DNSConfig     `mapstructure:"dns"`
+	Storage StorageConfig `mapstructure:"storage"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -54,15 +47,6 @@ type DNSConfig struct {
 type StorageConfig struct {
 	Type string `mapstructure:"type"`
 	Path string `mapstructure:"path"`
-}
-
-// TokenSet returns a map of all configured API tokens for fast lookup.
-func (c *Config) TokenSet() map[string]bool {
-	tokens := make(map[string]bool, len(c.APITokens))
-	for _, t := range c.APITokens {
-		tokens[t.Token] = true
-	}
-	return tokens
 }
 
 // Address returns the server address string.
