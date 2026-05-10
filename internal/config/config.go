@@ -39,10 +39,11 @@ type ACMEConfig struct {
 
 // DNSConfig holds DNS provider settings.
 type DNSConfig struct {
-	Provider  string `mapstructure:"provider"`
-	AccessKey string `mapstructure:"accessKey"`
-	SecretKey string `mapstructure:"secretKey"`
-	RegionID  string `mapstructure:"regionId"`
+	Provider             string   `mapstructure:"provider"`
+	AccessKey            string   `mapstructure:"accessKey"`
+	SecretKey            string   `mapstructure:"secretKey"`
+	RegionID             string   `mapstructure:"regionId"`
+	RecursiveNameservers []string `mapstructure:"recursiveNameservers"`
 }
 
 // StorageConfig holds certificate storage settings.

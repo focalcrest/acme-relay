@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
@@ -32,6 +33,17 @@ func main() {
 	store, err := storage.NewFilesystemStorage(cfg.Storage.Path)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+
+	// Override recursive resolvers used for SOA-based zone lookup
+	// (needed for split-horizon DNS where internal resolver disagrees with public).
+	// AddRecursiveNameservers returns a ChallengeOption closure that mutates the
+	// package-level resolver list when invoked; calling it with a nil Challenge
+	// is enough because the closure ignores its argument.
+	if len(cfg.DNS.RecursiveNameservers) > 0 {
+		if err := dns01.AddRecursiveNameservers(cfg.DNS.RecursiveNameservers)(nil); err != nil {
+			log.Fatalf("Failed to set recursive nameservers: %v", err)
+		}
 	}
 
 	// Initialize DNS provider
