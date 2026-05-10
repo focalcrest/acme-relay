@@ -271,10 +271,14 @@ func readBody(r *http.Request) ([]byte, error) {
 }
 
 func getRequestURL(r *http.Request) string {
+	scheme := "http"
 	if r.TLS != nil {
-		return "https://" + r.Host + r.URL.Path
+		scheme = "https"
 	}
-	return "http://" + r.Host + r.URL.Path
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	}
+	return scheme + "://" + r.Host + r.URL.Path
 }
 
 func writeProblem(w http.ResponseWriter, p *Problem) {
