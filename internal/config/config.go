@@ -38,12 +38,16 @@ type ACMEConfig struct {
 }
 
 // DNSConfig holds DNS provider settings.
+//
+// Provider names any of lego's supported DNS-01 providers (cloudflare,
+// alidns, route53, gcloud, digitalocean, dnspod, ...). Credentials carry
+// the provider's required environment variables as a flat map; the
+// runtime exports them before constructing the provider so each lego
+// backend reads them through its normal env path.
 type DNSConfig struct {
-	Provider             string   `mapstructure:"provider"`
-	AccessKey            string   `mapstructure:"accessKey"`
-	SecretKey            string   `mapstructure:"secretKey"`
-	RegionID             string   `mapstructure:"regionId"`
-	RecursiveNameservers []string `mapstructure:"recursiveNameservers"`
+	Provider             string            `mapstructure:"provider"`
+	Credentials          map[string]string `mapstructure:"credentials"`
+	RecursiveNameservers []string          `mapstructure:"recursiveNameservers"`
 }
 
 // StorageConfig holds certificate storage settings.

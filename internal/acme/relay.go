@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/providers/dns/alidns"
 	"github.com/go-acme/lego/v4/registration"
 
 	"github.com/focalcrest/acme-relay/pkg/types"
@@ -48,7 +48,7 @@ type CertificateStore interface {
 // Relay handles ACME certificate acquisition and renewal.
 type Relay struct {
 	client        *lego.Client
-	dnsProvider   *alidns.DNSProvider
+	dnsProvider   challenge.Provider
 	storage       CertificateStore
 	email         string
 	directoryURL  string
@@ -57,7 +57,7 @@ type Relay struct {
 }
 
 // NewRelay creates a new ACME relay instance.
-func NewRelay(email, directoryURL string, dnsProvider *alidns.DNSProvider, store CertificateStore) (*Relay, error) {
+func NewRelay(email, directoryURL string, dnsProvider challenge.Provider, store CertificateStore) (*Relay, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate account key: %w", err)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -46,12 +47,21 @@ func main() {
 		}
 	}
 
-	// Initialize DNS provider
-	dnsProvider, err := dns.NewAliDNSProvider(
-		cfg.DNS.AccessKey,
-		cfg.DNS.SecretKey,
-		cfg.DNS.RegionID,
-	)
+	// Export DNS provider credentials as env vars; lego's per-provider
+	// constructors read them through their normal env paths.
+	// Uppercase the keys because viper lowercases yaml keys on parse.
+	for k, v := range cfg.DNS.Credentials {
+		envKey := strings.ToUpper(k)
+		if err := os.Setenv(envKey, v); err != nil {
+			log.Fatalf("Failed to set credential env %s: %v", envKey, err)
+		}
+	}
+
+	// Initialize DNS provider from our supported registry.
+	if cfg.DNS.Provider == "" {
+		log.Fatal("dns.provider is required")
+	}
+	dnsProvider, err := dns.NewProvider(cfg.DNS.Provider)
 	if err != nil {
 		log.Fatalf("Failed to initialize DNS provider: %v", err)
 	}
@@ -67,14 +77,21 @@ func main() {
 		log.Fatalf("Failed to initialize ACME relay: %v", err)
 	}
 
-	// Initialize DNS TXT manager for direct DNS API
-	txtManager, err := dns.NewTXTManager(
-		cfg.DNS.AccessKey,
-		cfg.DNS.SecretKey,
-		cfg.DNS.RegionID,
-	)
-	if err != nil {
-		log.Fatalf("Failed to initialize TXT manager: %v", err)
+	// Direct DNS TXT manipulation API is AliDNS-specific; only enable it
+	// when running with the alidns provider.
+	var dnsAPIHandler *handler.DNSAPIHandler
+	if cfg.DNS.Provider == "alidns" {
+		// Read from env after credentials map was exported above; this
+		// keeps the source of truth identical to what lego itself reads.
+		txtManager, err := dns.NewTXTManager(
+			os.Getenv("ALICLOUD_ACCESS_KEY"),
+			os.Getenv("ALICLOUD_SECRET_KEY"),
+			os.Getenv("ALICLOUD_REGION_ID"),
+		)
+		if err != nil {
+			log.Fatalf("Failed to initialize TXT manager: %v", err)
+		}
+		dnsAPIHandler = handler.NewDNSAPIHandler(txtManager)
 	}
 
 	// Initialize nonce service and ID generator
@@ -104,7 +121,6 @@ func main() {
 	// Initialize handlers
 	certHandler := handler.NewCertificateHandler(relay)
 	acmeHandler := handler.NewACMEHandler(store, relay, nonceSvc, idGen, baseURL)
-	dnsAPIHandler := handler.NewDNSAPIHandler(txtManager)
 
 	// Set up router
 	r := chi.NewRouter()
@@ -144,13 +160,15 @@ func main() {
 		})
 	})
 
-	// DNS API routes (token auth)
-	r.Route("/api/v1", func(r chi.Router) {
-		tokenSet := cfg.TokenSet()
-		r.Use(middleware.APIKeyAuth(tokenSet))
-		r.Post("/dns/txt/add", dnsAPIHandler.AddTXT)
-		r.Post("/dns/txt/remove", dnsAPIHandler.RemoveTXT)
-	})
+	// DNS API routes (token auth) — only when AliDNS is configured.
+	if dnsAPIHandler != nil {
+		r.Route("/api/v1", func(r chi.Router) {
+			tokenSet := cfg.TokenSet()
+			r.Use(middleware.APIKeyAuth(tokenSet))
+			r.Post("/dns/txt/add", dnsAPIHandler.AddTXT)
+			r.Post("/dns/txt/remove", dnsAPIHandler.RemoveTXT)
+		})
+	}
 
 	// Create server
 	srv := &http.Server{

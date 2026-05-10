@@ -8,23 +8,24 @@ acme:
 
 dns:
   provider: "alidns"
-  accessKey: "${ALIDNS_ACCESS_KEY}"
-  secretKey: "${ALIDNS_SECRET_KEY}"
-  regionId: "cn-hangzhou"
+  credentials:
+    ALICLOUD_ACCESS_KEY: "${ALIDNS_ACCESS_KEY}"
+    ALICLOUD_SECRET_KEY: "${ALIDNS_SECRET_KEY}"
 
 storage:
   type: "filesystem"
   path: "/var/lib/acme-relay/certs"
 
-# Staging example — uncomment to test against LE staging + AliDNS
-# acme:
-#   provider: "staging"
-#   email: "admin@example.com"
+# Cloudflare example
 # dns:
-#   provider: "alidns"
-#   accessKey: "${ALIDNS_ACCESS_KEY}"
-#   secretKey: "${ALIDNS_SECRET_KEY}"
-#   regionId: "cn-hangzhou"
-# storage:
-#   type: "filesystem"
-#   path: "/var/lib/acme-relay/certs"
+#   provider: "cloudflare"
+#   credentials:
+#     CLOUDFLARE_DNS_API_TOKEN: "..."
+
+# Route 53 example
+# dns:
+#   provider: "route53"
+#   credentials:
+#     AWS_ACCESS_KEY_ID: "..."
+#     AWS_SECRET_ACCESS_KEY: "..."
+#     AWS_REGION: "us-east-1"
