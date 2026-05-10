@@ -46,15 +46,31 @@ Each row is "✅ = the user gets this benefit." `acme-relay` is the only project
 
 `step-ca` matches every operational property but issues from its own CA, so the resulting certificates aren't browser-trusted without distributing a private root. `acme-dns` and `cert-manager` produce real LE certificates but require each client to reach LE itself and (for `cert-manager`) hold DNS credentials. `acme-relay` keeps the trust story of public LE *and* the "credentials live in one place" property of a private CA.
 
+## Install
+
+Pick whichever fits — both produce the same binary.
+
+```bash
+# 1. Pre-built binary (no Go toolchain required)
+#    Available for linux-amd64, linux-arm64, darwin-amd64, darwin-arm64
+#    See https://github.com/focalcrest/acme-relay/releases for the latest tag.
+curl -L https://github.com/focalcrest/acme-relay/releases/latest/download/acme-relay_Linux_x86_64.tar.gz \
+  | tar xz
+sudo install -m 0755 acme-relay /usr/local/bin/
+
+# 2. go install (requires Go 1.24+; compiles locally)
+go install github.com/focalcrest/acme-relay/cmd/acme-relay@latest
+# binary lands at $(go env GOBIN)/acme-relay
+
+# 3. From source
+git clone https://github.com/focalcrest/acme-relay.git && cd acme-relay
+go build ./cmd/acme-relay
+```
+
 ## Quickstart
 
 ```bash
-# 1. Install
-go install github.com/focalcrest/acme-relay/cmd/acme-relay@latest
-# binary lands at $(go env GOBIN)/acme-relay
-# (or build from source: git clone … && go build ./cmd/acme-relay)
-
-# 2. Configure
+# Write config next to the binary
 cat > acme-relay.yaml <<'EOF'
 server:
   host: "127.0.0.1"
@@ -75,7 +91,7 @@ storage:
   path: "/var/lib/acme-relay/certs"
 EOF
 
-# 3. Run
+# Run
 ./acme-relay
 ```
 

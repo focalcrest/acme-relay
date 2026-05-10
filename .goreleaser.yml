@@ -1,0 +1,57 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: acme-relay
+    main: ./cmd/acme-relay
+    binary: acme-relay
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: acme-relay
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+
+release:
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## Install
+
+    See [Install](https://github.com/focalcrest/acme-relay#install) for details.
+
+    ```bash
+    # Pre-built binary (Linux x86_64)
+    curl -L https://github.com/focalcrest/acme-relay/releases/download/{{ .Tag }}/acme-relay_Linux_x86_64.tar.gz | tar xz
+    ```
