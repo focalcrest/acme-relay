@@ -4,6 +4,7 @@ package dns
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-acme/lego/v4/providers/dns/alidns"
 )
@@ -17,6 +18,7 @@ func NewAliDNSProvider(accessKey, secretKey, regionID string) (*alidns.DNSProvid
 	config.APIKey = accessKey
 	config.SecretKey = secretKey
 	config.RegionID = regionID
+	config.HTTPTimeout = 30 * time.Second
 
 	provider, err := alidns.NewDNSProviderConfig(config)
 	if err != nil {
