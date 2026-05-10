@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"acme-relay/internal/acme"
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // FilesystemStorage implements certificate storage on disk.

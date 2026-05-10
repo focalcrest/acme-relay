@@ -15,9 +15,9 @@ import (
 	"log"
 	"os"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/dns"
-	"acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/dns"
+	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
 func main() {

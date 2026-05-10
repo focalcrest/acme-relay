@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"acme-relay/internal/acme"
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // CertificateHandler handles HTTP requests for certificate operations.

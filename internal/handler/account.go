@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 // NewAccount handles POST /acme/new-account (JWSWithJWKMiddleware)

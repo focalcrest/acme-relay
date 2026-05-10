@@ -18,9 +18,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/storage"
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // mockRelay implements acme.RelayClient for testing.

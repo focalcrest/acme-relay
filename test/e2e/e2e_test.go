@@ -19,9 +19,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-jose/go-jose/v4"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/handler"
-	"acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/handler"
+	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
 // setupE2EServer creates a full ACME test server (nil relay) with the same

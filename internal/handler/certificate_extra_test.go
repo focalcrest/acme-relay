@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 func TestCheckOrderReady(t *testing.T) {

@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 // Directory handles GET /acme/directory

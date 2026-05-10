@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 // FinalizeOrder handles POST /acme/order/{id}/finalize

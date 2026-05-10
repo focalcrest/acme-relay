@@ -14,12 +14,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/config"
-	"acme-relay/internal/dns"
-	"acme-relay/internal/handler"
-	"acme-relay/internal/middleware"
-	"acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/config"
+	"github.com/focalcrest/acme-relay/internal/dns"
+	"github.com/focalcrest/acme-relay/internal/handler"
+	"github.com/focalcrest/acme-relay/internal/middleware"
+	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
 func main() {

@@ -26,7 +26,7 @@ import (
 	"github.com/go-acme/lego/v4/providers/dns/alidns"
 	"github.com/go-acme/lego/v4/registration"
 
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // RelayClient defines the interface for ACME relay operations.

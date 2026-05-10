@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 func TestFilesystemStorage_StoreAndGetCertificate(t *testing.T) {

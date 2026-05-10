@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"acme-relay/internal/dns"
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/internal/dns"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // DNSAPIHandler handles DNS TXT record API requests.

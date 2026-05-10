@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
 func setupTestACMEHandler(t *testing.T) (*ACMEHandler, *storage.FilesystemStorage) {

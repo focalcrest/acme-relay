@@ -1,4 +1,4 @@
-module acme-relay
+module github.com/focalcrest/acme-relay
 
 go 1.24.0
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 func TestFilesystemStorage_SaveAndGetOrder(t *testing.T) {

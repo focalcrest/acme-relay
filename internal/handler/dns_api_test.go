@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 // mockTXTManager implements dns.TXTRecordManager for testing.

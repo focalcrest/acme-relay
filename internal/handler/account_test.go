@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 
-	"acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/acme"
 )
 
 func TestNewAccount(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"acme-relay/pkg/types"
+	"github.com/focalcrest/acme-relay/pkg/types"
 )
 
 func TestHealthCheck(t *testing.T) {

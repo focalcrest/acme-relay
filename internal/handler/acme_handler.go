@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"acme-relay/internal/acme"
-	"acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/internal/acme"
+	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
 // ACMEHandler handles RFC 8555 ACME protocol endpoints.
