@@ -151,9 +151,13 @@ func (h *ACMEHandler) FinalizeOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store certificate and mark order valid
+	// Store full certificate chain (leaf + intermediate) per RFC 8555 §7.4.2
 	order.Status = acme.OrderStatusValid
-	order.Certificate = resp.Certificate
+	if resp.Chain != "" {
+		order.Certificate = resp.Certificate + resp.Chain
+	} else {
+		order.Certificate = resp.Certificate
+	}
 	if err := h.store.SaveOrder(order); err != nil {
 		h.writeProblem(w, &acme.Problem{
 			Type:   "urn:ietf:params:acme:error:serverInternal",
