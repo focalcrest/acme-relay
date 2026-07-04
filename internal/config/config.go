@@ -48,6 +48,9 @@ type DNSConfig struct {
 	Provider             string            `mapstructure:"provider"`
 	Credentials          map[string]string `mapstructure:"credentials"`
 	RecursiveNameservers []string          `mapstructure:"recursiveNameservers"`
+	// AllowedZones limits which zones the DNS TXT API may write into.
+	// The API stays disabled unless at least one zone is configured.
+	AllowedZones []string `mapstructure:"allowedZones"`
 }
 
 // StorageConfig holds certificate storage settings.

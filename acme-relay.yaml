@@ -10,6 +10,12 @@ dns:
   provider: "cloudflare"
   credentials:
     CLOUDFLARE_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
+  # Zones the DNS TXT API (/api/v1/dns/txt/*) may write into. The API only
+  # accepts _acme-challenge.* names inside these zones, and stays disabled
+  # unless both allowedZones and apiTokens are configured.
+  # Supported providers: alidns, cloudflare.
+  # allowedZones:
+  #   - "example.com"
 
 storage:
   type: "filesystem"
@@ -23,6 +29,13 @@ storage:
 #   credentials:
 #     ALICLOUD_ACCESS_KEY: "${ALICLOUD_ACCESS_KEY}"
 #     ALICLOUD_SECRET_KEY: "${ALICLOUD_SECRET_KEY}"
+#   allowedZones:
+#     - "example.com"
+#
+# Bearer tokens for the DNS TXT API (used by plugins/dns_acmerelay.sh)
+# apiTokens:
+#   - token: "${ACMERELAY_API_KEY}"
+#     description: "portal acme.sh"
 #
 # Route 53
 # dns:

@@ -77,21 +77,23 @@ func main() {
 		log.Fatalf("Failed to initialize ACME relay: %v", err)
 	}
 
-	// Direct DNS TXT manipulation API is AliDNS-specific; only enable it
-	// when running with the alidns provider.
+	// The DNS TXT API lets internal ACME clients publish DNS-01 proofs
+	// through this relay (see plugins/dns_acmerelay.sh). Fail closed unless
+	// both API tokens and an allowed-zone whitelist are configured.
 	var dnsAPIHandler *handler.DNSAPIHandler
-	if cfg.DNS.Provider == "alidns" {
-		// Read from env after credentials map was exported above; this
-		// keeps the source of truth identical to what lego itself reads.
-		txtManager, err := dns.NewTXTManager(
-			os.Getenv("ALICLOUD_ACCESS_KEY"),
-			os.Getenv("ALICLOUD_SECRET_KEY"),
-			os.Getenv("ALICLOUD_REGION_ID"),
-		)
+	switch {
+	case len(cfg.APITokens) == 0:
+		log.Println("DNS TXT API disabled: no apiTokens configured")
+	case len(cfg.DNS.AllowedZones) == 0:
+		log.Println("DNS TXT API disabled: no dns.allowedZones configured")
+	default:
+		// Credentials come from env after the credentials map was exported
+		// above; this keeps the source of truth identical to what lego reads.
+		txtManager, err := dns.NewTXTManager(cfg.DNS.Provider)
 		if err != nil {
-			log.Fatalf("Failed to initialize TXT manager: %v", err)
+			log.Fatalf("Failed to initialize DNS TXT API: %v", err)
 		}
-		dnsAPIHandler = handler.NewDNSAPIHandler(txtManager)
+		dnsAPIHandler = handler.NewDNSAPIHandler(txtManager, cfg.DNS.AllowedZones)
 	}
 
 	// Initialize nonce service and ID generator
