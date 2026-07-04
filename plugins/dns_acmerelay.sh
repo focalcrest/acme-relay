@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 
 # acme.sh DNS plugin for acme-relay
-# Uses the acme-relay DNS API to manage TXT records via AliDNS.
+# Uses the acme-relay DNS API to manage TXT records via the relay's
+# configured DNS provider (AliDNS, Cloudflare, ...).
 #
 # Environment variables:
 #   ACMERELAY_URL     - Base URL of the acme-relay server (e.g., http://relay:8080)
@@ -32,12 +33,15 @@ dns_acmerelay_add() {
 
   _info "Adding TXT record via acme-relay: $_fqdn"
 
+  # acme.sh's _post takes custom headers via _H1.._HN env vars, not arguments.
+  export _H1="Authorization: Bearer $ACMERELAY_API_KEY"
   response="$(_post "{\"fqdn\":\"$_fqdn\",\"value\":\"$_txtvalue\"}" \
     "$ACMERELAY_URL/api/v1/dns/txt/add" \
-    "" POST "application/json" \
-    "Authorization: Bearer $ACMERELAY_API_KEY")"
+    "" "POST" "application/json")"
 
-  if [ "$?" != "0" ]; then
+  # _post exits 0 even on HTTP 4xx/5xx; the relay answers {"status":"ok"}
+  # on success, so check the body.
+  if [ "$?" != "0" ] || ! _contains "$response" "\"status\":\"ok\""; then
     _err "Failed to add TXT record via acme-relay"
     _err "$response"
     return 1
@@ -67,12 +71,12 @@ dns_acmerelay_rm() {
 
   _info "Removing TXT record via acme-relay: $_fqdn"
 
+  export _H1="Authorization: Bearer $ACMERELAY_API_KEY"
   response="$(_post "{\"fqdn\":\"$_fqdn\",\"value\":\"$_txtvalue\"}" \
     "$ACMERELAY_URL/api/v1/dns/txt/remove" \
-    "" POST "application/json" \
-    "Authorization: Bearer $ACMERELAY_API_KEY")"
+    "" "POST" "application/json")"
 
-  if [ "$?" != "0" ]; then
+  if [ "$?" != "0" ] || ! _contains "$response" "\"status\":\"ok\""; then
     _err "Failed to remove TXT record via acme-relay"
     _err "$response"
     return 1
