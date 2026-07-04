@@ -21,6 +21,7 @@ import (
 	"github.com/focalcrest/acme-relay/internal/handler"
 	"github.com/focalcrest/acme-relay/internal/middleware"
 	"github.com/focalcrest/acme-relay/internal/storage"
+	"github.com/focalcrest/acme-relay/plugins"
 )
 
 func main() {
@@ -138,6 +139,13 @@ func main() {
 		r.Post("/certificate", certHandler.RequestCertificate)
 		r.Get("/certificate/{domain}", certHandler.GetCertificate)
 		r.Post("/renew/{domain}", certHandler.RenewCertificate)
+	})
+
+	// Distribute the acme.sh plugin from the relay itself so clients
+	// always install the version matching the running server.
+	r.Get("/plugins/dns_acmerelay.sh", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+		w.Write(plugins.DNSAcmerelay)
 	})
 
 	// RFC 8555 ACME routes
