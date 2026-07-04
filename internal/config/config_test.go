@@ -101,6 +101,35 @@ func TestLoad_FileNotFound(t *testing.T) {
 	}
 }
 
+func TestTokenSet(t *testing.T) {
+	cfg := &Config{
+		APITokens: []APITokenConfig{
+			{Token: "abc123", Description: "test token"},
+			{Token: "def456", Description: "another token"},
+		},
+	}
+
+	set := cfg.TokenSet()
+	if len(set) != 2 {
+		t.Fatalf("TokenSet() returned %d tokens, want 2", len(set))
+	}
+	if !set["abc123"] {
+		t.Error("TokenSet() missing abc123")
+	}
+	if !set["def456"] {
+		t.Error("TokenSet() missing def456")
+	}
+	if set["nonexistent"] {
+		t.Error("TokenSet() should not contain nonexistent token")
+	}
+
+	emptyCfg := &Config{}
+	emptySet := emptyCfg.TokenSet()
+	if len(emptySet) != 0 {
+		t.Errorf("empty config TokenSet() = %d tokens, want 0", len(emptySet))
+	}
+}
+
 func TestValidate_MissingFields(t *testing.T) {
 	tests := []struct {
 		name   string

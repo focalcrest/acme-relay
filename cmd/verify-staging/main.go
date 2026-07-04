@@ -28,8 +28,10 @@ func main() {
 		log.Fatal("-domain flag is required")
 	}
 
-	if os.Getenv("ALICLOUD_ACCESS_KEY") == "" || os.Getenv("ALICLOUD_SECRET_KEY") == "" {
-		log.Fatal("ALICLOUD_ACCESS_KEY and ALICLOUD_SECRET_KEY environment variables are required")
+	accessKey := os.Getenv("ALIDNS_ACCESS_KEY")
+	secretKey := os.Getenv("ALIDNS_SECRET_KEY")
+	if accessKey == "" || secretKey == "" {
+		log.Fatal("ALIDNS_ACCESS_KEY and ALIDNS_SECRET_KEY environment variables are required")
 	}
 
 	// Create temp storage
@@ -44,8 +46,8 @@ func main() {
 		log.Fatalf("Failed to create storage: %v", err)
 	}
 
-	// Create DNS provider via registry (reads ALICLOUD_* from env)
-	dnsProvider, err := dns.NewProvider("alidns")
+	// Create DNS provider
+	dnsProvider, err := dns.NewAliDNSProvider(accessKey, secretKey, "cn-hangzhou")
 	if err != nil {
 		log.Fatalf("Failed to create DNS provider: %v", err)
 	}

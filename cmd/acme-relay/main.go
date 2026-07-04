@@ -19,6 +19,7 @@ import (
 	"github.com/focalcrest/acme-relay/internal/config"
 	"github.com/focalcrest/acme-relay/internal/dns"
 	"github.com/focalcrest/acme-relay/internal/handler"
+	"github.com/focalcrest/acme-relay/internal/middleware"
 	"github.com/focalcrest/acme-relay/internal/storage"
 )
 
@@ -74,6 +75,23 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize ACME relay: %v", err)
+	}
+
+	// Direct DNS TXT manipulation API is AliDNS-specific; only enable it
+	// when running with the alidns provider.
+	var dnsAPIHandler *handler.DNSAPIHandler
+	if cfg.DNS.Provider == "alidns" {
+		// Read from env after credentials map was exported above; this
+		// keeps the source of truth identical to what lego itself reads.
+		txtManager, err := dns.NewTXTManager(
+			os.Getenv("ALICLOUD_ACCESS_KEY"),
+			os.Getenv("ALICLOUD_SECRET_KEY"),
+			os.Getenv("ALICLOUD_REGION_ID"),
+		)
+		if err != nil {
+			log.Fatalf("Failed to initialize TXT manager: %v", err)
+		}
+		dnsAPIHandler = handler.NewDNSAPIHandler(txtManager)
 	}
 
 	// Initialize nonce service and ID generator
@@ -141,6 +159,16 @@ func main() {
 			r.Post("/certificate/{orderID}", acmeHandler.GetCertificate)
 		})
 	})
+
+	// DNS API routes (token auth) — only when AliDNS is configured.
+	if dnsAPIHandler != nil {
+		r.Route("/api/v1", func(r chi.Router) {
+			tokenSet := cfg.TokenSet()
+			r.Use(middleware.APIKeyAuth(tokenSet))
+			r.Post("/dns/txt/add", dnsAPIHandler.AddTXT)
+			r.Post("/dns/txt/remove", dnsAPIHandler.RemoveTXT)
+		})
+	}
 
 	// Create server
 	srv := &http.Server{
