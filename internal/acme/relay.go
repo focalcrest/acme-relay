@@ -14,15 +14,18 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	"github.com/miekg/dns"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 
@@ -34,6 +37,7 @@ import (
 type RelayClient interface {
 	CompleteCertificateRequest(ctx context.Context, domains []string, csrBase64 string) (*types.CertificateResponse, error)
 	VerifyHTTP01Challenge(ctx context.Context, domain, token, keyAuth string) error
+	VerifyDNS01Challenge(ctx context.Context, domain, token, keyAuth string) error
 	RequestCertificate(ctx context.Context, domains []string, csrBase64 string) (*types.CertificateResponse, error)
 	GetCertificate(domain string) (*types.CertificateResponse, error)
 	RenewCertificate(ctx context.Context, domain string) (*types.CertificateResponse, error)
@@ -47,17 +51,21 @@ type CertificateStore interface {
 
 // Relay handles ACME certificate acquisition and renewal.
 type Relay struct {
-	client        *lego.Client
-	dnsProvider   challenge.Provider
-	storage       CertificateStore
-	email         string
-	directoryURL  string
-	httpClient    *http.Client
-	jwkThumbprint string
+	client               *lego.Client
+	dnsProvider          challenge.Provider
+	storage              CertificateStore
+	email                string
+	directoryURL         string
+	httpClient           *http.Client
+	jwkThumbprint        string
+	recursiveNameservers []string
 }
 
-// NewRelay creates a new ACME relay instance.
-func NewRelay(email, directoryURL string, dnsProvider challenge.Provider, store CertificateStore) (*Relay, error) {
+// NewRelay creates a new ACME relay instance. recursiveNameservers, when
+// non-empty, is used to query DNS-01 TXT records directly (needed for
+// split-horizon setups where the relay's own resolver disagrees with the
+// public view); when empty, the system resolver is used instead.
+func NewRelay(email, directoryURL string, dnsProvider challenge.Provider, store CertificateStore, recursiveNameservers []string) (*Relay, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate account key: %w", err)
@@ -93,13 +101,14 @@ func NewRelay(email, directoryURL string, dnsProvider challenge.Provider, store 
 	jwkThumbprint := base64.RawURLEncoding.EncodeToString(thumbprintBytes)
 
 	return &Relay{
-		client:        client,
-		dnsProvider:   dnsProvider,
-		storage:       store,
-		email:         email,
-		directoryURL:  directoryURL,
-		httpClient:    &http.Client{Timeout: 10 * time.Second},
-		jwkThumbprint: jwkThumbprint,
+		client:               client,
+		dnsProvider:          dnsProvider,
+		storage:              store,
+		email:                email,
+		directoryURL:         directoryURL,
+		httpClient:           &http.Client{Timeout: 10 * time.Second},
+		jwkThumbprint:        jwkThumbprint,
+		recursiveNameservers: dns01.ParseNameservers(recursiveNameservers),
 	}, nil
 }
 
@@ -177,6 +186,67 @@ func (r *Relay) VerifyHTTP01Challenge(ctx context.Context, domain, token, keyAut
 	}
 
 	return nil
+}
+
+// VerifyDNS01Challenge verifies that the client has published the expected
+// DNS-01 key authorization digest at _acme-challenge.<domain>. Unlike the
+// DNS TXT API (which just writes records on request), this does a real DNS
+// lookup, mirroring how a public CA would validate the challenge.
+func (r *Relay) VerifyDNS01Challenge(ctx context.Context, domain, _, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	values, err := r.lookupTXT(ctx, info.FQDN)
+	if err != nil {
+		return fmt.Errorf("failed to query DNS-01 TXT record for %s: %w", info.FQDN, err)
+	}
+
+	if !containsString(values, info.Value) {
+		return fmt.Errorf("TXT record for %s does not contain expected key authorization digest", info.FQDN)
+	}
+
+	return nil
+}
+
+// lookupTXT queries a TXT record. When recursiveNameservers is configured it
+// queries them directly with miekg/dns (needed for split-horizon DNS where
+// the relay's default resolver would return an internal, non-public
+// answer); otherwise it falls back to the system resolver.
+func (r *Relay) lookupTXT(ctx context.Context, fqdn string) ([]string, error) {
+	if len(r.recursiveNameservers) == 0 {
+		return net.DefaultResolver.LookupTXT(ctx, fqdn)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion(fqdn, dns.TypeTXT)
+	m.RecursionDesired = true
+
+	client := &dns.Client{Timeout: 10 * time.Second}
+
+	var lastErr error
+	for _, ns := range r.recursiveNameservers {
+		resp, _, err := client.ExchangeContext(ctx, m, ns)
+		if err != nil {
+			lastErr = fmt.Errorf("nameserver %s: %w", ns, err)
+			continue
+		}
+		if resp.Rcode != dns.RcodeSuccess {
+			lastErr = fmt.Errorf("nameserver %s returned %s", ns, dns.RcodeToString[resp.Rcode])
+			continue
+		}
+
+		var values []string
+		for _, rr := range resp.Answer {
+			if txt, ok := rr.(*dns.TXT); ok {
+				values = append(values, strings.Join(txt.Txt, ""))
+			}
+		}
+		return values, nil
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no recursive nameservers available")
+	}
+	return nil, lastErr
 }
 
 // CompleteCertificateRequest completes the certificate flow after HTTP-01 verification.

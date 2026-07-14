@@ -54,7 +54,7 @@ func main() {
 
 	// Create relay with LE staging
 	stagingURL := "https://acme-staging-v02.api.letsencrypt.org/directory"
-	relay, err := acme.NewRelay("acme-relay-verify@test.com", stagingURL, dnsProvider, store)
+	relay, err := acme.NewRelay("acme-relay-verify@test.com", stagingURL, dnsProvider, store, nil)
 	if err != nil {
 		log.Fatalf("Failed to create relay: %v", err)
 	}

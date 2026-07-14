@@ -27,17 +27,17 @@ type Identifier struct {
 
 // Order represents an ACME order
 type Order struct {
-	ID            int64      `json:"id"`
-	Status        string     `json:"status"`
-	Identifiers   []Identifier `json:"identifiers"`
-	Authorizations []string   `json:"authorizations"`
-	Finalize      string     `json:"finalize"`
-	Certificate   string     `json:"certificate,omitempty"`
-	NotBefore     time.Time  `json:"notBefore,omitempty"`
-	NotAfter      time.Time  `json:"notAfter,omitempty"`
-	CreatedAt     time.Time  `json:"createdAt"`
-	AccountID     int64      `json:"accountId"`
-	CSR           string     `json:"csr,omitempty"`
+	ID             int64        `json:"id"`
+	Status         string       `json:"status"`
+	Identifiers    []Identifier `json:"identifiers"`
+	Authorizations []string     `json:"authorizations"`
+	Finalize       string       `json:"finalize"`
+	Certificate    string       `json:"certificate,omitempty"`
+	NotBefore      time.Time    `json:"notBefore,omitempty"`
+	NotAfter       time.Time    `json:"notAfter,omitempty"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	AccountID      int64        `json:"accountId"`
+	CSR            string       `json:"csr,omitempty"`
 }
 
 // Authorization represents an ACME authorization
@@ -53,13 +53,13 @@ type Authorization struct {
 
 // Challenge represents an ACME challenge
 type Challenge struct {
-	Type        string     `json:"type"`
-	URL         string     `json:"url"`
-	Token       string     `json:"token"`
-	Status      string     `json:"status"`
-	KeyAuth     string     `json:"keyAuthorization,omitempty"`
-	Validated   time.Time  `json:"validated,omitempty"`
-	Error       *Problem   `json:"error,omitempty"`
+	Type      string    `json:"type"`
+	URL       string    `json:"url"`
+	Token     string    `json:"token"`
+	Status    string    `json:"status"`
+	KeyAuth   string    `json:"keyAuthorization,omitempty"`
+	Validated time.Time `json:"validated,omitempty"`
+	Error     *Problem  `json:"error,omitempty"`
 }
 
 // Account represents an ACME account
@@ -76,7 +76,7 @@ type Account struct {
 // Account create request
 type AccountCreateRequest struct {
 	TermsOfServiceAgreed bool   `json:"termsOfServiceAgreed"`
-	Email               string `json:"email,omitempty"`
+	Email                string `json:"email,omitempty"`
 }
 
 // Order create request
@@ -108,11 +108,11 @@ type ChallengeUpdate struct {
 
 // Problem represents an ACME problem (RFC 7807)
 type Problem struct {
-	Type       string `json:"type"`
-	Title      string `json:"title,omitempty"`
-	Detail     string `json:"detail,omitempty"`
-	Status     int    `json:"status,omitempty"`
-	Instance   string `json:"instance,omitempty"`
+	Type     string `json:"type"`
+	Title    string `json:"title,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+	Status   int    `json:"status,omitempty"`
+	Instance string `json:"instance,omitempty"`
 }
 
 // Error implements the error interface
@@ -196,17 +196,20 @@ func ParseIdentifiers(identifiers []Identifier) ([]Identifier, error) {
 	return valid, nil
 }
 
-// isValidDomain performs basic domain validation
+// isValidDomain performs basic domain validation. A single leading "*."
+// wildcard label is permitted; the rest of the domain must be a normal
+// dotted hostname.
 func isValidDomain(domain string) bool {
 	if len(domain) == 0 || len(domain) > 253 {
 		return false
 	}
+	rest := strings.TrimPrefix(domain, "*.")
 	// Basic check: must have at least one dot and no invalid characters
-	if !strings.Contains(domain, ".") {
+	if !strings.Contains(rest, ".") {
 		return false
 	}
 	// Check for valid characters (alphanumeric, hyphen, dot)
-	for _, c := range domain {
+	for _, c := range rest {
 		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-') {
 			return false
 		}
@@ -214,31 +217,37 @@ func isValidDomain(domain string) bool {
 	return true
 }
 
+// IsWildcardIdentifier reports whether a domain identifier carries the "*."
+// wildcard label, per RFC 8555 §7.1.3.
+func IsWildcardIdentifier(domain string) bool {
+	return strings.HasPrefix(domain, "*.")
+}
+
 // OrderStatus constants
 const (
 	OrderStatusPending    = "pending"
-	OrderStatusReady     = "ready"
+	OrderStatusReady      = "ready"
 	OrderStatusProcessing = "processing"
-	OrderStatusValid     = "valid"
-	OrderStatusInvalid   = "invalid"
+	OrderStatusValid      = "valid"
+	OrderStatusInvalid    = "invalid"
 )
 
 // AuthorizationStatus constants
 const (
-	AuthzStatusPending   = "pending"
-	AuthzStatusValid     = "valid"
-	AuthzStatusInvalid   = "invalid"
+	AuthzStatusPending     = "pending"
+	AuthzStatusValid       = "valid"
+	AuthzStatusInvalid     = "invalid"
 	AuthzStatusDeactivated = "deactivated"
-	AuthzStatusExpired   = "expired"
-	AuthzStatusRevoked   = "revoked"
+	AuthzStatusExpired     = "expired"
+	AuthzStatusRevoked     = "revoked"
 )
 
 // ChallengeStatus constants
 const (
 	ChallengeStatusPending    = "pending"
 	ChallengeStatusProcessing = "processing"
-	ChallengeStatusValid     = "valid"
-	ChallengeStatusInvalid   = "invalid"
+	ChallengeStatusValid      = "valid"
+	ChallengeStatusInvalid    = "invalid"
 )
 
 // ChallengeType constants
@@ -250,7 +259,7 @@ const (
 
 // AccountStatus constants
 const (
-	AccountStatusValid = "valid"
+	AccountStatusValid       = "valid"
 	AccountStatusDeactivated = "deactivated"
-	AccountStatusRevoked = "revoked"
+	AccountStatusRevoked     = "revoked"
 )

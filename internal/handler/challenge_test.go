@@ -29,8 +29,8 @@ func TestHandleChallenge(t *testing.T) {
 	token, _ := acme.GenerateToken()
 	authzID := h.idGen.Next()
 	authz := &acme.Authorization{
-		ID:     authzID,
-		Status: acme.AuthzStatusPending,
+		ID:         authzID,
+		Status:     acme.AuthzStatusPending,
 		Identifier: acme.Identifier{Type: "dns", Value: "example.com"},
 		Challenges: []acme.Challenge{
 			{
@@ -70,6 +70,72 @@ func TestHandleChallenge(t *testing.T) {
 	}
 	if resp.KeyAuthorization == "" {
 		t.Error("keyAuthorization should be set")
+	}
+}
+
+func TestHandleChallenge_DNS01Dispatch(t *testing.T) {
+	relay := &mockRelay{}
+	h, store := setupTestACMEHandlerWithRelay(t, relay)
+
+	jwkJSON := `{"kty":"EC","crv":"P-256","x":"test","y":"test"}`
+	account := &acme.Account{
+		ID:        h.idGen.Next(),
+		Status:    acme.AccountStatusValid,
+		PublicKey: "fake-thumbprint",
+		JWKJSON:   jwkJSON,
+		CreatedAt: time.Now(),
+	}
+	store.SaveAccount(account)
+
+	token, _ := acme.GenerateToken()
+	authzID := h.idGen.Next()
+	authz := &acme.Authorization{
+		ID:         authzID,
+		Status:     acme.AuthzStatusPending,
+		Identifier: acme.Identifier{Type: "dns", Value: "example.com"},
+		Challenges: []acme.Challenge{
+			{
+				Type:   acme.ChallengeTypeDNS01,
+				URL:    "https://acme.example.com/acme/challenge/" + itoa(authzID) + "/0",
+				Token:  token,
+				Status: acme.ChallengeStatusPending,
+			},
+		},
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		AccountID: account.ID,
+	}
+	store.SaveAuthorization(authz)
+
+	r := chi.NewRouter()
+	r.Post("/acme/challenge/{authzID}/{chalID}", h.HandleChallenge)
+
+	req := httptest.NewRequest("POST", "/acme/challenge/"+itoa(authzID)+"/0", nil)
+	req = acme.SetJWSInContext(req, &acme.JWSRequest{AccountID: account.ID})
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	// Verification runs asynchronously; poll the mock's own mutex-guarded
+	// counters (not the shared store, which the goroutine mutates without
+	// synchronization) until it completes.
+	deadline := time.Now().Add(2 * time.Second)
+	var http01Calls, dns01Calls int
+	for time.Now().Before(deadline) {
+		http01Calls, dns01Calls = relay.callCounts()
+		if http01Calls+dns01Calls > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if http01Calls != 0 {
+		t.Errorf("VerifyHTTP01Challenge was called %d times, want 0 for a dns-01 challenge", http01Calls)
+	}
+	if dns01Calls != 1 {
+		t.Errorf("VerifyDNS01Challenge was called %d times, want 1", dns01Calls)
 	}
 }
 

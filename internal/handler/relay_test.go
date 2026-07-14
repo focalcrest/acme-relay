@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +29,10 @@ type mockRelay struct {
 	certResp  *types.CertificateResponse
 	certErr   error
 	verifyErr error
+
+	mu          sync.Mutex
+	http01Calls int
+	dns01Calls  int
 }
 
 func (m *mockRelay) CompleteCertificateRequest(_ context.Context, _ []string, _ string) (*types.CertificateResponse, error) {
@@ -35,7 +40,23 @@ func (m *mockRelay) CompleteCertificateRequest(_ context.Context, _ []string, _ 
 }
 
 func (m *mockRelay) VerifyHTTP01Challenge(_ context.Context, _, _, _ string) error {
+	m.mu.Lock()
+	m.http01Calls++
+	m.mu.Unlock()
 	return m.verifyErr
+}
+
+func (m *mockRelay) VerifyDNS01Challenge(_ context.Context, _, _, _ string) error {
+	m.mu.Lock()
+	m.dns01Calls++
+	m.mu.Unlock()
+	return m.verifyErr
+}
+
+func (m *mockRelay) callCounts() (http01, dns01 int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.http01Calls, m.dns01Calls
 }
 
 func (m *mockRelay) RequestCertificate(_ context.Context, _ []string, _ string) (*types.CertificateResponse, error) {
@@ -100,13 +121,13 @@ func TestFinalizeOrder_Success(t *testing.T) {
 	store.SaveAuthorization(authz)
 
 	order := &acme.Order{
-		ID:            h.idGen.Next(),
-		Status:        acme.OrderStatusReady,
-		Identifiers:   []acme.Identifier{{Type: "dns", Value: "test.example.com"}},
+		ID:             h.idGen.Next(),
+		Status:         acme.OrderStatusReady,
+		Identifiers:    []acme.Identifier{{Type: "dns", Value: "test.example.com"}},
 		Authorizations: []string{"https://acme.example.com/acme/authz/" + itoa(authzID)},
-		Finalize:      "https://acme.example.com/acme/order/1/finalize",
-		CreatedAt:     time.Now(),
-		AccountID:     account.ID,
+		Finalize:       "https://acme.example.com/acme/order/1/finalize",
+		CreatedAt:      time.Now(),
+		AccountID:      account.ID,
 	}
 	store.SaveOrder(order)
 
@@ -176,13 +197,13 @@ func TestFinalizeOrder_RelayError(t *testing.T) {
 	store.SaveAuthorization(authz)
 
 	order := &acme.Order{
-		ID:            h.idGen.Next(),
-		Status:        acme.OrderStatusReady,
-		Identifiers:   []acme.Identifier{{Type: "dns", Value: "test.example.com"}},
+		ID:             h.idGen.Next(),
+		Status:         acme.OrderStatusReady,
+		Identifiers:    []acme.Identifier{{Type: "dns", Value: "test.example.com"}},
 		Authorizations: []string{"https://acme.example.com/acme/authz/" + itoa(authzID)},
-		Finalize:      "https://acme.example.com/acme/order/1/finalize",
-		CreatedAt:     time.Now(),
-		AccountID:     account.ID,
+		Finalize:       "https://acme.example.com/acme/order/1/finalize",
+		CreatedAt:      time.Now(),
+		AccountID:      account.ID,
 	}
 	store.SaveOrder(order)
 
@@ -321,13 +342,13 @@ func TestVerifyChallenge_OrderBecomesReady(t *testing.T) {
 	store.SaveAuthorization(authz)
 
 	order := &acme.Order{
-		ID:            h.idGen.Next(),
-		Status:        acme.OrderStatusPending,
-		Identifiers:   []acme.Identifier{{Type: "dns", Value: "ready.example.com"}},
+		ID:             h.idGen.Next(),
+		Status:         acme.OrderStatusPending,
+		Identifiers:    []acme.Identifier{{Type: "dns", Value: "ready.example.com"}},
 		Authorizations: []string{"https://acme.example.com/acme/authz/" + itoa(authzID)},
-		Finalize:      "https://acme.example.com/acme/order/1/finalize",
-		CreatedAt:     time.Now(),
-		AccountID:     account.ID,
+		Finalize:       "https://acme.example.com/acme/order/1/finalize",
+		CreatedAt:      time.Now(),
+		AccountID:      account.ID,
 	}
 	store.SaveOrder(order)
 

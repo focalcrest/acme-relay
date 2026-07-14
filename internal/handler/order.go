@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -54,20 +55,39 @@ func (h *ACMEHandler) NewOrder(w http.ResponseWriter, r *http.Request) {
 
 	for _, id := range identifiers {
 		authzID := h.idGen.Next()
-		token, _ := acme.GenerateToken()
+		isWildcard := acme.IsWildcardIdentifier(id.Value)
 
-		challenge := acme.Challenge{
-			Type:   acme.ChallengeTypeHTTP01,
-			URL:    h.baseURL + "/acme/challenge/" + itoa(authzID) + "/" + "0",
-			Token:  token,
+		var challenges []acme.Challenge
+		if !isWildcard {
+			token, _ := acme.GenerateToken()
+			challenges = append(challenges, acme.Challenge{
+				Type:   acme.ChallengeTypeHTTP01,
+				URL:    h.baseURL + "/acme/challenge/" + itoa(authzID) + "/" + itoa(int64(len(challenges))),
+				Token:  token,
+				Status: acme.ChallengeStatusPending,
+			})
+		}
+		dnsToken, _ := acme.GenerateToken()
+		challenges = append(challenges, acme.Challenge{
+			Type:   acme.ChallengeTypeDNS01,
+			URL:    h.baseURL + "/acme/challenge/" + itoa(authzID) + "/" + itoa(int64(len(challenges))),
+			Token:  dnsToken,
 			Status: acme.ChallengeStatusPending,
+		})
+
+		// Per RFC 8555 §7.1.3, a wildcard authorization's identifier drops
+		// the "*." label and carries wildcard:true instead.
+		authzIdentifier := id
+		if isWildcard {
+			authzIdentifier.Value = strings.TrimPrefix(id.Value, "*.")
 		}
 
 		authz := &acme.Authorization{
 			ID:         authzID,
 			Status:     acme.AuthzStatusPending,
-			Identifier: id,
-			Challenges: []acme.Challenge{challenge},
+			Identifier: authzIdentifier,
+			Challenges: challenges,
+			Wildcard:   isWildcard,
 			ExpiresAt:  time.Now().Add(7 * 24 * time.Hour),
 			AccountID:  jwsReq.AccountID,
 		}
@@ -86,13 +106,13 @@ func (h *ACMEHandler) NewOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	order := &acme.Order{
-		ID:            orderID,
-		Status:        acme.OrderStatusPending,
-		Identifiers:   identifiers,
+		ID:             orderID,
+		Status:         acme.OrderStatusPending,
+		Identifiers:    identifiers,
 		Authorizations: authzURLs,
-		Finalize:      h.baseURL + "/acme/order/" + itoa(orderID) + "/finalize",
-		CreatedAt:     time.Now(),
-		AccountID:     jwsReq.AccountID,
+		Finalize:       h.baseURL + "/acme/order/" + itoa(orderID) + "/finalize",
+		CreatedAt:      time.Now(),
+		AccountID:      jwsReq.AccountID,
 	}
 
 	if err := h.store.SaveOrder(order); err != nil {
@@ -133,12 +153,12 @@ func (h *ACMEHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 type orderResp struct {
-	Status         string              `json:"status"`
-	Expires        string              `json:"expires,omitempty"`
-	Identifiers    []acme.Identifier   `json:"identifiers"`
-	Authorizations []string            `json:"authorizations"`
-	Finalize       string              `json:"finalize"`
-	Certificate    string              `json:"certificate,omitempty"`
+	Status         string            `json:"status"`
+	Expires        string            `json:"expires,omitempty"`
+	Identifiers    []acme.Identifier `json:"identifiers"`
+	Authorizations []string          `json:"authorizations"`
+	Finalize       string            `json:"finalize"`
+	Certificate    string            `json:"certificate,omitempty"`
 }
 
 func orderResponse(o *acme.Order, baseURL string) orderResp {

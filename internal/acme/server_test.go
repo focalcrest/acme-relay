@@ -164,11 +164,35 @@ func TestIsValidDomain(t *testing.T) {
 		{"example.com/path", false},
 		{"valid-domain.org", true},
 		{"123.example.com", true},
+		{"*.example.com", true},
+		{"*.sub.example.com", true},
+		{"*.", false},
+		{"*.localhost", false},
+		{"a.*.example.com", false},
+		{"**.example.com", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.domain, func(t *testing.T) {
 			if got := isValidDomain(tt.domain); got != tt.want {
 				t.Errorf("isValidDomain(%q) = %v, want %v", tt.domain, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsWildcardIdentifier(t *testing.T) {
+	tests := []struct {
+		domain string
+		want   bool
+	}{
+		{"example.com", false},
+		{"*.example.com", true},
+		{"sub.*.example.com", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.domain, func(t *testing.T) {
+			if got := IsWildcardIdentifier(tt.domain); got != tt.want {
+				t.Errorf("IsWildcardIdentifier(%q) = %v, want %v", tt.domain, got, tt.want)
 			}
 		})
 	}

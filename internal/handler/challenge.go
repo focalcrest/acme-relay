@@ -102,11 +102,16 @@ func (h *ACMEHandler) verifyChallenge(authz *acme.Authorization, chalIdx int, ke
 	challenge := &authz.Challenges[chalIdx]
 	domain := authz.Identifier.Value
 
-	// Verify HTTP-01 challenge
 	ctx, cancel := contextWithTimeout(30 * time.Second)
 	defer cancel()
 
-	err := h.relay.VerifyHTTP01Challenge(ctx, domain, challenge.Token, keyAuth)
+	var err error
+	switch challenge.Type {
+	case acme.ChallengeTypeDNS01:
+		err = h.relay.VerifyDNS01Challenge(ctx, domain, challenge.Token, keyAuth)
+	default:
+		err = h.relay.VerifyHTTP01Challenge(ctx, domain, challenge.Token, keyAuth)
+	}
 
 	if err != nil {
 		log.Printf("Challenge verification failed for %s: %v", domain, err)

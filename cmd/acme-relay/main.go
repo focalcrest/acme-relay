@@ -73,6 +73,7 @@ func main() {
 		cfg.GetDirectoryURL(),
 		dnsProvider,
 		store,
+		cfg.DNS.RecursiveNameservers,
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize ACME relay: %v", err)
